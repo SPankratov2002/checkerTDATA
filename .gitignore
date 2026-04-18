@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude
+.claude/
+
+# ── Sensitive / user data ─────────────────────────────────────────────────────
+# API credentials and personal settings — never commit
+settings.txt
+
+# Session and tdata files — real Telegram accounts
+accounts/
+*.session
+*.session-journal
+*.json
+
+# Archives
+*.zip
+*.rar
+*.tar
+*.tar.gz
+*.7z
+
+# Proxy list
+working_proxies.txt
+
+# ── Results / logs ────────────────────────────────────────────────────────────
+results.txt
+checks.txt
+tokens.txt
+referals.txt
+channels.txt
+
+# ── Temp ──────────────────────────────────────────────────────────────────────
+temp_*/

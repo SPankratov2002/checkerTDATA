@@ -1,0 +1,37 @@
+TDATAS_DIR=accounts/tdatas
+SESSIONS_DIR=accounts/sessions
+TDATA_TO_SESSION_DIR=accounts/tdata_to_session
+SESSION_TO_TDATA_DIR=accounts/session_to_tdata
+FILTERED_DIR=accounts/filtered
+VALID_DIR=accounts/valid
+API_ID=YOUR_API_ID
+API_HASH=YOUR_API_HASH
+NFT_SERIAL_THRESHOLD=500000
+PHONE_LOCK_DURATION=1800
+
+#не менять всё выше
+
+
+FILTERS_FILE=filters.txt            # Файл с тегами ботов/групп для фильтрации
+RESULTS_FILE=results.txt            # TSV-файл с результатами проверок
+
+# Что проверять
+CHECK_GIFTS=True                    # Подарки и NFT (только подсчёт)
+CHECK_CRYPTOBOT=True                # Баланс CryptoBot (только чтение, сообщения удаляются)
+CHECK_SPAMBOT=True                  # Спам-статус через @SpamBot (сообщения удаляются)
+CHECK_2FA=True                      # Наличие двухфакторного пароля
+CHECK_FULL_INFO=True                # Bio, фото, активные сессии, контакты
+CHECK_ADMIN=True                    # Проверять admin-каналы и группы
+
+# Фильтрация
+COPY_FILTERED=True                  # True=копировать, False=перемещать в filtered/
+
+# Session Management
+DELETE_FROZEN_SESSIONS=True         # Удалять замороженные сессии
+DELETE_USED_SESSIONS=False          # Удалять успешно проверенные сессии
+DELETE_INVALID_SESSIONS=True        # Удалять невалидные сессии
+
+# Application Settings
+CHECK_INTERVAL=1
+MAX_CONCURRENT=50                   # Параллельных проверок аккаунтов
+ARCHIVE_CONCURRENT=8                # Параллельных распаковок архивов (не увеличивай > 10)

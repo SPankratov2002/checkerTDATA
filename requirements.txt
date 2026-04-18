@@ -1,0 +1,7 @@
+telethon>=1.38.0
+colorama
+aiohttp
+rarfile
+cryptg
+python-socks
+tgconvertor
