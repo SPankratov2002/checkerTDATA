@@ -6,7 +6,7 @@ import io
 import shutil
 from colorama import init, Fore, Style
 
-# Force UTF-8 output on Windows — prevents UnicodeEncodeError with cyrillic/box chars
+# Force UTF-8 output on Windows
 if hasattr(sys.stdout, 'buffer') and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'buffer') and sys.stderr.encoding.lower() != 'utf-8':
@@ -21,7 +21,7 @@ from .session_manager import (
 from .filter_check import invalidate_filters_cache
 from .config import load_settings, save_settings, DEFAULTS, BASE_DIR
 
-# ─── palette ────────────────────────────────────────────────────────────────
+# ─── palette ─────────────────────────────────────────────────────────────────
 C  = Fore.CYAN
 W  = Fore.WHITE
 G  = Fore.GREEN
@@ -31,28 +31,29 @@ DM = Style.DIM
 BR = Style.BRIGHT
 RS = Style.RESET_ALL
 
-# ─── layout constants ────────────────────────────────────────────────────────
-PANEL_W = 60          # visible width of the UI panel
+PANEL_W  = 60
 _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
 
 def _vis(s: str) -> int:
-    """Visible (non-ANSI) length of a string."""
     return len(_ANSI_RE.sub('', s))
 
 
+def _cols() -> int:
+    return shutil.get_terminal_size((120, 40)).columns
+
+
 def _margin() -> str:
-    cols = shutil.get_terminal_size((120, 40)).columns
-    return ' ' * max(0, (cols - PANEL_W) // 2)
+    return ' ' * max(0, (_cols() - PANEL_W) // 2)
 
 
 def _p(line: str = ''):
-    """Print one line with auto left-margin centering."""
     print(_margin() + line)
 
 
-def _rule(char='─'):
-    print(_margin() + f'{DM}{W}' + char * PANEL_W + RS)
+def _rule(char='─', color=True):
+    s = char * PANEL_W
+    print(_margin() + (f'{DM}{W}{s}{RS}' if color else s))
 
 
 def _clear():
@@ -68,68 +69,56 @@ _BANNER_LINES = [
     "███████║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║███████╗╚██████╔╝██║  ██║",
     "╚══════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝",
 ]
-# Banner is wider than PANEL_W — center it independently
+
 def _print_banner():
-    cols = shutil.get_terminal_size((120, 40)).columns
+    cols     = _cols()
     banner_w = max(len(l) for l in _BANNER_LINES)
-    pad = ' ' * max(0, (cols - banner_w) // 2)
+    pad      = ' ' * max(0, (cols - banner_w) // 2)
     print()
     for line in _BANNER_LINES:
         print(pad + BR + C + line + RS)
-    subtitle = 'C H E C K E R   v1.0'
-    sub_pad = ' ' * max(0, (cols - len(subtitle)) // 2)
-    print(sub_pad + DM + W + subtitle + RS)
-    print()
+    sub     = 'C H E C K E R   v1.0'
+    sub_pad = ' ' * max(0, (cols - len(sub)) // 2)
+    print(sub_pad + DM + W + sub + RS)
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
-def _section(label: str):
-    _p()
-    _p(f'{DM}{Y}{label}{RS}')
-
-
-def _item(key, label: str, dim=False):
-    key_s   = f'{BR}{C}[{key}]{RS}'
-    label_s = f'{DM}{W}{label}{RS}' if dim else f'{W}{label}{RS}'
-    _p(f'  {key_s}  {label_s}')
-
-
 def _prompt(msg='Выбор') -> str:
     m = _margin()
     return input(f'\n{m}{BR}{C}❯ {RS}{W}{msg}: {RS}').strip()
 
 
 def _ok(msg: str):
-    _p(f'{G}✓  {msg}{RS}')
+    _p(f'{G}  ✓  {msg}{RS}')
 
 
 def _err(msg: str):
-    _p(f'{R}✗  {msg}{RS}')
+    _p(f'{R}  ✗  {msg}{RS}')
 
 
 def _pause():
     m = _margin()
-    input(f'\n{m}{DM}{W}Нажмите Enter...{RS}')
+    input(f'\n{m}{DM}{W}  Нажмите Enter...{RS}')
 
 
 def _header(subtitle=''):
     _clear()
     _print_banner()
     if subtitle:
-        cols = shutil.get_terminal_size((120, 40)).columns
+        cols = _cols()
         pad  = ' ' * max(0, (cols - len(subtitle)) // 2)
-        print(pad + BR + W + subtitle + RS)
-    _rule('─')
+        print('\n' + pad + BR + W + subtitle + RS)
+    print()
+    _rule()
 
 
+# ─── stats + active checks ───────────────────────────────────────────────────
 def _stats_bar():
     settings     = load_settings()
     tdatas_dir   = os.path.join(BASE_DIR, settings.get('TDATAS_DIR',   'accounts/tdatas'))
     sessions_dir = os.path.join(BASE_DIR, settings.get('SESSIONS_DIR', 'accounts/sessions'))
 
     tdatas = archives = sessions = 0
-
-    # Single-level scan — fast even with 2500+ files
     if os.path.isdir(tdatas_dir):
         for entry in os.listdir(tdatas_dir):
             lower = entry.lower()
@@ -139,26 +128,57 @@ def _stats_bar():
                 full = os.path.join(tdatas_dir, entry)
                 if os.path.isdir(full) and os.path.isfile(os.path.join(full, 'key_datas')):
                     tdatas += 1
-
     if os.path.isdir(sessions_dir):
-        sessions = sum(
-            1 for f in os.listdir(sessions_dir)
-            if f.lower().endswith('.session')
-        )
+        sessions = sum(1 for f in os.listdir(sessions_dir) if f.lower().endswith('.session'))
 
+    # Files line
     parts = []
-    if tdatas:   parts.append(f'{BR}{C}{tdatas}{RS} {DM}{W}tdata{RS}')
-    if sessions: parts.append(f'{BR}{C}{sessions}{RS} {DM}{W}sessions{RS}')
-    if archives: parts.append(f'{BR}{C}{archives}{RS} {DM}{W}архивов{RS}')
+    if archives: parts.append(f'{BR}{Y}{archives}{RS}{DM}{W} архивов{RS}')
+    if tdatas:   parts.append(f'{BR}{C}{tdatas}{RS}{DM}{W} tdata{RS}')
+    if sessions: parts.append(f'{BR}{C}{sessions}{RS}{DM}{W} sessions{RS}')
 
+    sep = f'  {DM}{W}·{RS}  '
     if parts:
-        sep  = f'  {DM}{W}·{RS}  '
-        line = f'{DM}{W}Найдено: {RS}' + sep.join(parts)
-        cols = shutil.get_terminal_size((120, 40)).columns
-        pad  = ' ' * max(0, (cols - _vis(line)) // 2)
-        print('\n' + pad + line)
+        line = f'{DM}{W}Файлы: {RS}' + sep.join(parts)
     else:
-        _p(f'{DM}{W}Папки пусты — добавьте файлы в accounts/{RS}')
+        line = f'{DM}{W}Папки пусты — добавьте файлы в {BR}accounts/{RS}'
+
+    cols = _cols()
+    print(' ' * max(0, (cols - _vis(line)) // 2) + line)
+
+    # Active checks line
+    flags = []
+    if settings.get('CHECK_GIFTS'):    flags.append('Gifts')
+    if settings.get('CHECK_CRYPTOBOT'): flags.append('CryptoBot')
+    if settings.get('CHECK_SPAMBOT'):  flags.append('SpamBot')
+    if settings.get('CHECK_2FA'):      flags.append('2FA')
+    if settings.get('CHECK_ADMIN'):    flags.append('Admin')
+    if flags:
+        checks_line = f'{DM}{W}Проверки: {RS}{DM}{G}' + '  '.join(flags) + RS
+        print(' ' * max(0, (cols - _vis(checks_line)) // 2) + checks_line)
+
+    print()
+
+
+# ─── primary action item (highlighted) ───────────────────────────────────────
+def _primary(key, label: str):
+    """Big highlighted item — the main action."""
+    key_s   = f'{BR}{G}[{key}]{RS}'
+    label_s = f'{BR}{W}{label}{RS}'
+    arrow   = f'{DM}{G}  ◄ ГЛАВНОЕ{RS}'
+    _p(f'  {key_s}  {label_s}{arrow}')
+
+
+def _item(key, label: str, dim=False, note=''):
+    key_s   = f'{BR}{C}[{key}]{RS}'
+    label_s = f'{DM}{W}{label}{RS}' if dim else f'{W}{label}{RS}'
+    note_s  = f'  {DM}{W}{note}{RS}' if note else ''
+    _p(f'  {key_s}  {label_s}{note_s}')
+
+
+def _section(label: str):
+    _p()
+    _p(f'{DM}{Y}{label}{RS}')
 
 
 # ─── main menu ───────────────────────────────────────────────────────────────
@@ -167,78 +187,103 @@ def main():
         _header()
         _stats_bar()
 
-        _section('Проверка аккаунтов')
-        _item(1, 'Проверка tdata')
-        _item(2, 'Проверка sessions')
+        _primary(1, 'Сканировать tdata')
+        _item(2, 'Проверить sessions')
 
-        _section('Конвертация')
-        _item(3, 'tdata  →  session')
-        _item(4, 'session  →  tdata')
-        _item(5, 'tdata  →  session  →  проверка')
-        _item(6, 'session  →  tdata  →  проверка')
-
-        _section('Прочее')
-        _item(7, 'Фильтры  (бот / группа)')
-        _item(9, 'Настройки')
-        _item(0, 'Выход', dim=True)
+        _section('Инструменты')
+        _item(3, 'Конвертация')
+        _item(4, 'Фильтры  (бот / группа)')
 
         _p()
         _rule('┄')
+        _item('S', 'Настройки', note='API, проверки, пути')
+        _item(0,   'Выход', dim=True)
+        _rule('┄')
+
         choice = _prompt()
 
         if choice == '1':
-            _header('Проверка tdata')
+            _header('◉  Сканирование tdata')
             asyncio.run(scan_tdatas())
-            _ok('Проверка завершена.')
+            _ok('Сканирование завершено.')
             _pause()
 
         elif choice == '2':
-            _header('Проверка sessions')
+            _header('◉  Проверка sessions')
             asyncio.run(scan_sessions())
             _ok('Проверка завершена.')
             _pause()
 
         elif choice == '3':
-            _header('Конверт tdata → session')
-            asyncio.run(convert_all_tdatas())
-            _ok('Конверт завершён.')
-            _pause()
+            convert_menu()
 
         elif choice == '4':
-            _header('Конверт session → tdata')
-            asyncio.run(convert_all_sessions_to_tdata())
-            _ok('Конверт завершён.')
-            _pause()
-
-        elif choice == '5':
-            _header('tdata → session → проверка')
-            asyncio.run(convert_all_tdatas())
-            _ok('Конвертация завершена, запускаю проверку...')
-            from .config import TDATA_TO_SESSION_DIR
-            asyncio.run(scan_sessions(TDATA_TO_SESSION_DIR))
-            _ok('Операция завершена.')
-            _pause()
-
-        elif choice == '6':
-            _header('session → tdata → проверка')
-            asyncio.run(convert_all_sessions_to_tdata())
-            _ok('Конвертация завершена, запускаю проверку...')
-            from .config import SESSION_TO_TDATA_DIR
-            asyncio.run(scan_tdatas(SESSION_TO_TDATA_DIR))
-            _ok('Операция завершена.')
-            _pause()
-
-        elif choice == '7':
             edit_filters()
 
-        elif choice == '9':
+        elif choice.lower() == 's':
             edit_settings()
 
         elif choice == '0':
             _clear()
             print()
-            _p(f'{DM}{W}Выход...{RS}')
+            _p(f'{DM}{W}  Выход...{RS}')
             print()
+            break
+
+        else:
+            _err('Неверный выбор!')
+            _pause()
+
+
+# ─── convert submenu ─────────────────────────────────────────────────────────
+def convert_menu():
+    while True:
+        _header('Конвертация')
+
+        _p(f'{DM}{W}  Выберите направление конвертации:{RS}')
+        _p()
+        _item(1, 'tdata  →  session',               note='сохранить как .session')
+        _item(2, 'session  →  tdata',               note='восстановить tdata')
+        _p()
+        _item(3, 'tdata  →  session  →  проверка',  note='конверт + чек')
+        _item(4, 'session  →  tdata  →  проверка',  note='конверт + чек')
+        _p()
+        _item(0, 'Назад', dim=True)
+        _rule('┄')
+
+        choice = _prompt()
+
+        if choice == '1':
+            _header('tdata → session')
+            asyncio.run(convert_all_tdatas())
+            _ok('Конвертация завершена.')
+            _pause()
+
+        elif choice == '2':
+            _header('session → tdata')
+            asyncio.run(convert_all_sessions_to_tdata())
+            _ok('Конвертация завершена.')
+            _pause()
+
+        elif choice == '3':
+            _header('tdata → session → проверка')
+            asyncio.run(convert_all_tdatas())
+            _ok('Конвертация завершена, запускаю проверку...')
+            from .config import TDATA_TO_SESSION_DIR
+            asyncio.run(scan_sessions(TDATA_TO_SESSION_DIR))
+            _ok('Готово.')
+            _pause()
+
+        elif choice == '4':
+            _header('session → tdata → проверка')
+            asyncio.run(convert_all_sessions_to_tdata())
+            _ok('Конвертация завершена, запускаю проверку...')
+            from .config import SESSION_TO_TDATA_DIR
+            asyncio.run(scan_tdatas(SESSION_TO_TDATA_DIR))
+            _ok('Готово.')
+            _pause()
+
+        elif choice == '0':
             break
 
         else:
@@ -248,7 +293,7 @@ def main():
 
 # ─── filters ─────────────────────────────────────────────────────────────────
 def edit_filters():
-    settings = load_settings()
+    settings     = load_settings()
     filters_path = os.path.join(BASE_DIR, settings.get('FILTERS_FILE', 'filters.txt'))
 
     def _load():
@@ -260,19 +305,22 @@ def edit_filters():
     while True:
         filters = _load()
         _header('Фильтры — бот / группа')
-        _p(f'{DM}{W}Аккаунты с совпадением → accounts/filtered/<тег>/{RS}')
+
+        _p(f'{DM}{W}  Аккаунты с совпадением будут скопированы в:{RS}')
+        _p(f'{DM}{C}  accounts/filtered/<тег>/{RS}')
         _p()
 
         if filters:
             for i, tag in enumerate(filters, 1):
                 _p(f'  {BR}{C}[{i:2}]{RS}  {W}{tag}{RS}')
         else:
-            _p(f'  {DM}{W}(список пуст){RS}')
+            _p(f'  {DM}{W}(список пуст — аккаунты не фильтруются){RS}')
 
         _p()
-        _item('a', 'Добавить')
+        _rule('┄')
+        _item('a', 'Добавить фильтр')
         if filters:
-            _item('d', 'Удалить')
+            _item('d', 'Удалить фильтр')
         _item(0, 'Назад', dim=True)
         _rule('┄')
 
@@ -293,6 +341,7 @@ def edit_filters():
                     _ok(f'Добавлен: {tag}')
                 else:
                     _err('Уже есть в списке.')
+            _pause()
         elif action == 'd' and filters:
             try:
                 idx = int(_prompt('Номер для удаления')) - 1
@@ -306,7 +355,7 @@ def edit_filters():
                     _err('Неверный номер.')
             except ValueError:
                 _err('Введите число.')
-        _pause()
+            _pause()
 
 
 def _save_filters(path, filters):
@@ -319,41 +368,66 @@ def _save_filters(path, filters):
 
 
 # ─── settings ────────────────────────────────────────────────────────────────
-def edit_settings():
-    _CATEGORIES = {
-        'Директории':          ['TDATAS_DIR', 'SESSIONS_DIR', 'TDATA_TO_SESSION_DIR',
-                                 'SESSION_TO_TDATA_DIR', 'FILTERED_DIR', 'VALID_DIR'],
-        'API':                 ['API_ID', 'API_HASH'],
-        'Файлы':               ['FILTERS_FILE', 'RESULTS_FILE'],
-        'Что проверять':       ['CHECK_GIFTS', 'CHECK_CRYPTOBOT', 'CHECK_SPAMBOT',
-                                 'CHECK_2FA', 'CHECK_FULL_INFO', 'CHECK_ADMIN'],
-        'Фильтрация':          ['COPY_FILTERED'],
-        'Управление сессиями': ['DELETE_FROZEN_SESSIONS', 'DELETE_USED_SESSIONS',
-                                 'DELETE_INVALID_SESSIONS'],
-        'Параметры':           ['CHECK_INTERVAL', 'MAX_CONCURRENT', 'ARCHIVE_CONCURRENT',
-                                 'PHONE_LOCK_DURATION', 'NFT_SERIAL_THRESHOLD'],
-    }
+_SETTINGS_CATEGORIES = {
+    'Что проверять': [
+        ('CHECK_GIFTS',     'Подарки и NFT'),
+        ('CHECK_CRYPTOBOT', 'Баланс CryptoBot'),
+        ('CHECK_SPAMBOT',   'Спам-статус (@SpamBot)'),
+        ('CHECK_2FA',       'Двухфакторный пароль'),
+        ('CHECK_FULL_INFO', 'Bio, фото, сессии, контакты'),
+        ('CHECK_ADMIN',     'Каналы и группы (admin)'),
+    ],
+    'Управление файлами': [
+        ('DELETE_FROZEN_SESSIONS',  'Удалять замороженные сессии'),
+        ('DELETE_USED_SESSIONS',    'Удалять проверенные сессии'),
+        ('DELETE_INVALID_SESSIONS', 'Удалять невалидные сессии'),
+        ('COPY_FILTERED',           'Копировать (не перемещать) в filtered/'),
+    ],
+    'Производительность': [
+        ('MAX_CONCURRENT',     'Параллельных проверок'),
+        ('ARCHIVE_CONCURRENT', 'Параллельных распаковок'),
+        ('PHONE_LOCK_DURATION','Блокировка номера (сек)'),
+        ('CHECK_INTERVAL',     'Интервал проверки'),
+    ],
+    'Пути и файлы': [
+        ('TDATAS_DIR',          'Папка tdata'),
+        ('SESSIONS_DIR',        'Папка sessions'),
+        ('VALID_DIR',           'Папка valid (результаты)'),
+        ('FILTERED_DIR',        'Папка filtered'),
+        ('TDATA_TO_SESSION_DIR','Конверт tdata→session'),
+        ('SESSION_TO_TDATA_DIR','Конверт session→tdata'),
+        ('FILTERS_FILE',        'Файл фильтров'),
+        ('RESULTS_FILE',        'Файл результатов'),
+    ],
+    'API Telegram': [
+        ('API_ID',   'API ID'),
+        ('API_HASH', 'API Hash'),
+        ('NFT_SERIAL_THRESHOLD', 'Порог серийника NFT'),
+    ],
+}
 
+
+def edit_settings():
     while True:
-        settings  = load_settings()
-        key_map   = {}
-        idx       = 1
+        settings = load_settings()
+        key_map  = {}
+        idx      = 1
 
         _header('Настройки')
 
-        for category, keys in _CATEGORIES.items():
+        for category, pairs in _SETTINGS_CATEGORIES.items():
             _section(category)
-            for key in keys:
+            for key, label in pairs:
                 if key not in settings:
                     continue
                 val = settings[key]
                 if isinstance(val, bool):
-                    val_s = f'{G}True{RS}' if val else f'{R}False{RS}'
+                    val_s = f'{G}✓ Вкл{RS}' if val else f'{DM}{R}✗ Выкл{RS}'
                 else:
-                    s = str(val)
-                    val_s = f'{Y}{s[:40]}{"..." if len(s) > 40 else ""}{RS}'
+                    s     = str(val)
+                    val_s = f'{Y}{s[:36]}{"…" if len(s) > 36 else ""}{RS}'
                 num_s = f'{BR}{C}[{idx:2}]{RS}'
-                _p(f'  {num_s}  {DM}{W}{key:<28}{RS} {val_s}')
+                _p(f'  {num_s}  {DM}{W}{label:<30}{RS} {val_s}')
                 key_map[idx] = key
                 idx += 1
 
@@ -366,7 +440,6 @@ def edit_settings():
         raw = _prompt('Номер / s / 0')
 
         if raw == '0':
-            _err('Изменения не сохранены.')
             break
         elif raw.lower() == 's':
             if save_settings(settings):
@@ -391,24 +464,34 @@ def edit_settings():
         key         = key_map[choice]
         default_val = DEFAULTS[key]
         current_val = settings[key]
+        # Find human label
+        label = key
+        for pairs in _SETTINGS_CATEGORIES.values():
+            for k, l in pairs:
+                if k == key:
+                    label = l
+                    break
 
-        _p(f'\n  {W}{key}{RS} = {Y}{current_val}{RS}  {DM}({type(default_val).__name__}){RS}')
+        _p()
+        _p(f'  {W}{label}{RS}  {DM}({key}){RS}')
+        _p(f'  Текущее: {Y}{current_val}{RS}')
+        _p()
 
         if isinstance(default_val, bool):
-            new_raw = _prompt('Новое значение (true / false)').lower()
-            settings[key] = new_raw in ('true', '1', 'yes', 'on')
-            _ok(f'{key} = {settings[key]}')
+            new_raw = _prompt('Новое значение  [1/0  или  true/false]').lower()
+            settings[key] = new_raw in ('true', '1', 'yes', 'on', 'вкл')
+            _ok(f'{label}: {"Вкл" if settings[key] else "Выкл"}')
         elif isinstance(default_val, int):
             try:
                 settings[key] = int(_prompt('Новое значение (число)'))
-                _ok(f'{key} = {settings[key]}')
+                _ok(f'{label} = {settings[key]}')
             except ValueError:
-                _err('Неверное число.')
+                _err('Введите целое число.')
         else:
             new_val = _prompt('Новое значение')
             if new_val:
                 settings[key] = new_val
-                _ok(f'{key} = {settings[key]}')
+                _ok(f'{label} = {settings[key]}')
             else:
                 _err('Пустое значение, отменено.')
         _pause()
