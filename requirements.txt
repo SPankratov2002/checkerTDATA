@@ -5,3 +5,4 @@ rarfile
 cryptg
 python-socks
 tgconvertor
+async-timeout>=4.0   # asyncio.timeout backport for Python < 3.11

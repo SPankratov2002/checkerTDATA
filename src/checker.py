@@ -11,6 +11,7 @@ from telethon.tl.functions.messages import GetDialogsRequest
 from telethon.tl.types import InputPeerSelf, InputPeerEmpty
 from .config import NFT_SERIAL_THRESHOLD, CHECK_GIFTS, CHECK_CRYPTOBOT, CHECK_SPAMBOT, \
     CHECK_2FA, CHECK_FULL_INFO, CHECK_ADMIN, RESULTS_FILE, BASE_DIR
+from .utils import async_timeout
 
 
 async def _cleanup_bot_dialog(client, entity, msg_limit: int = 30):
@@ -76,7 +77,7 @@ async def get_cryptobot_balance(client) -> dict:
     try:
         for _ in range(2):
             try:
-                async with asyncio.timeout(5):
+                async with async_timeout(5):
                     entity = await client.get_input_entity("@send")
                 break
             except Exception:
@@ -125,7 +126,7 @@ async def check_spambot(client) -> str:
     try:
         for _ in range(2):
             try:
-                async with asyncio.timeout(5):
+                async with async_timeout(5):
                     entity = await client.get_input_entity("@SpamBot")
                 break
             except Exception:
@@ -259,7 +260,7 @@ async def check_account(client, phone_number) -> dict:
 
     if CHECK_FULL_INFO:
         try:
-            async with asyncio.timeout(15):
+            async with async_timeout(15):
                 full = await get_full_info(client, me)
                 info.update(full)
         except Exception:
@@ -267,33 +268,33 @@ async def check_account(client, phone_number) -> dict:
 
     if CHECK_2FA:
         try:
-            async with asyncio.timeout(10):
+            async with async_timeout(10):
                 info["has_2fa"] = await get_2fa_status(client)
         except Exception:
             pass
 
     try:
-        async with asyncio.timeout(10):
+        async with async_timeout(10):
             info["stars_balance"] = await get_stars_balance(client)
     except Exception:
         pass
 
     if CHECK_GIFTS:
         try:
-            async with asyncio.timeout(15):
+            async with async_timeout(15):
                 info.update(await get_gifts_info(client))
         except Exception:
             pass
 
     try:
-        async with asyncio.timeout(10):
+        async with async_timeout(10):
             info["dialogs_count"] = await count_dialogs(client)
     except Exception:
         pass
 
     if CHECK_ADMIN:
         try:
-            async with asyncio.timeout(15):
+            async with async_timeout(15):
                 admin = await check_admin_status(client)
                 info["ch_admin"] = admin["ch_admin"]
                 info["gr_admin"] = admin["gr_admin"]
@@ -302,14 +303,14 @@ async def check_account(client, phone_number) -> dict:
 
     if CHECK_SPAMBOT:
         try:
-            async with asyncio.timeout(25):
+            async with async_timeout(25):
                 info["spam_status"] = await check_spambot(client)
         except Exception:
             pass
 
     if CHECK_CRYPTOBOT:
         try:
-            async with asyncio.timeout(25):
+            async with async_timeout(25):
                 crypto = await get_cryptobot_balance(client)
                 info["usdt_balance"] = crypto["usdt"]
                 info["ton_balance"] = crypto["ton"]

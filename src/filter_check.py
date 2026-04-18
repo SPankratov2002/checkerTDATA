@@ -1,10 +1,12 @@
 import asyncio
 import os
 import shutil
+from typing import Optional
 from .config import FILTERS_FILE, FILTERED_DIR, COPY_FILTERED, BASE_DIR
+from .utils import async_timeout
 
 # Cached after first load — file doesn't change during a run
-_FILTERS_CACHE: list | None = None
+_FILTERS_CACHE: Optional[list] = None
 
 
 async def load_filters() -> list:
@@ -47,7 +49,7 @@ async def check_all_filters(client, phone_number) -> list:
     # Collect dialog usernames in a single pass
     dialog_usernames: set[str] = set()
     try:
-        async with asyncio.timeout(20):
+        async with async_timeout(20):
             async for dialog in client.iter_dialogs(limit=500):
                 username = getattr(dialog.entity, 'username', None)
                 if username:

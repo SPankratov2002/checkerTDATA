@@ -6,6 +6,7 @@ import time
 import binascii
 import sqlite3
 import random
+from typing import Optional
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.network import ConnectionTcpFull
@@ -15,7 +16,7 @@ from .utils import (
     SESSION_SEMAPHORE, GLOBAL_SEMAPHORE, ARCHIVE_EXECUTOR, ARCHIVE_SEMAPHORE,
     get_random_telethon_proxy, generate_random_template_data,
     is_phone_rate_limited, mark_phone_as_used, get_phone_lock, delete_session_files,
-    cleanup_phone_locks, ProgressTracker,
+    cleanup_phone_locks, ProgressTracker, async_timeout,
 )
 from .tdata_parsing import (
     read_file, create_local_key, decrypt_local, read_user_auth, build_session,
@@ -30,7 +31,7 @@ from .sorter import save_and_sort
 _CHECKED_PHONES: set = set()
 
 # Shared progress tracker — set by scan_tdatas / scan_sessions
-_PROGRESS: ProgressTracker | None = None
+_PROGRESS: Optional[ProgressTracker] = None
 
 
 async def create_sqlite_session_file(session_path, dc_id, server_address, port, auth_key):
@@ -124,7 +125,7 @@ async def convert_tdata_to_session(tdata_path, passcode=None, archive_path=None,
                 phone_number = None
 
                 try:
-                    async with asyncio.timeout(3):
+                    async with async_timeout(3):
                         client = TelegramClient(**client_kwargs)
                         await client.connect()
                         if await client.is_user_authorized():
@@ -237,7 +238,7 @@ async def process_session_file(session_path):
         try:
             client = TelegramClient(**client_kwargs)
             try:
-                async with asyncio.timeout(15):
+                async with async_timeout(15):
                     await client.connect()
             except asyncio.TimeoutError:
                 return
@@ -284,7 +285,7 @@ async def process_active_client(client, phone_number, session_path, json_path, t
 
     async with get_phone_lock(phone_number):
         try:
-            async with asyncio.timeout(120):
+            async with async_timeout(120):
                 info = await check_account(client, phone_number)
 
                 # Save and sort valid tdata
@@ -378,7 +379,7 @@ async def process_tdata_folder(tdata_path, original_archive=""):
                 try:
                     client = TelegramClient(**client_kwargs)
                     try:
-                        async with asyncio.timeout(15):
+                        async with async_timeout(15):
                             await client.connect()
                     except (asyncio.TimeoutError, Exception) as e:
                         print(f"\n[{os.path.basename(tdata_path)}] Ошибка подключения: {e}")

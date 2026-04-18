@@ -1,3 +1,4 @@
+import sys
 import random
 import time
 import asyncio
@@ -7,8 +8,14 @@ from .config import MAX_CONCURRENT, ARCHIVE_CONCURRENT, PHONE_LOCK_DURATION
 from .config import DEVICE_LIST, SDK_LIST, APP_VERSION_LIST, LANG_CODE_LIST, LANG_PACK_LIST
 from .config import API_ID, API_HASH
 
-PHONE_LOCKS: dict[str, asyncio.Lock] = {}
-LAST_USED_PHONE_TIMES: dict[str, float] = {}
+# asyncio.timeout was added in Python 3.11 — backport for 3.9/3.10
+if sys.version_info >= (3, 11):
+    from asyncio import timeout as async_timeout
+else:
+    from async_timeout import timeout as async_timeout
+
+PHONE_LOCKS: dict = {}
+LAST_USED_PHONE_TIMES: dict = {}
 
 ARCHIVE_SEMAPHORE  = Semaphore(ARCHIVE_CONCURRENT)
 SESSION_SEMAPHORE  = Semaphore(MAX_CONCURRENT)
