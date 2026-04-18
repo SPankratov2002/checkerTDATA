@@ -9,10 +9,11 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
-# unrar required for .rar archives
+# unrar — предупреждение, не блокируем запуск
 if ! command -v unrar &>/dev/null && ! command -v bsdtar &>/dev/null; then
     echo "Предупреждение: unrar не найден. RAR-архивы не будут открываться."
     echo "  Установить: sudo apt install unrar"
+    echo ""
 fi
 
 # ── venv ──────────────────────────────────────────────────────────────────────
@@ -27,17 +28,9 @@ source venv/bin/activate
 pip install -q --upgrade pip
 pip install -q -r requirements.txt
 
-# ── settings ──────────────────────────────────────────────────────────────────
+# ── settings — копируем если нет, но не останавливаем запуск ─────────────────
 if [ ! -f "settings.txt" ]; then
     cp settings.example.txt settings.txt
-    echo ""
-    echo "  ┌─────────────────────────────────────────────────────┐"
-    echo "  │  Создан settings.txt из примера.                    │"
-    echo "  │  Укажите API_ID и API_HASH в файле settings.txt     │"
-    echo "  │  Получить можно на: https://my.telegram.org         │"
-    echo "  └─────────────────────────────────────────────────────┘"
-    echo ""
-    exit 1
 fi
 
 # ── run ───────────────────────────────────────────────────────────────────────
